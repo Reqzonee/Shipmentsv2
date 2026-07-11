@@ -1,0 +1,31 @@
+{
+  "name": "shipments-bulk-actions",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shipmnts Bulk Action Platform — scalable CRM bulk updates",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "postinstall": "npm run build -w @shipments/shared",
+    "dev": "concurrently -n api,worker -c blue,magenta \"npm run dev -w @shipments/api\" \"npm run dev -w @shipments/worker\"",
+    "dev:api": "npm run dev -w @shipments/api",
+    "dev:worker": "npm run dev -w @shipments/worker",
+    "dev:web": "npm run dev -w @shipments/web",
+    "dev:all": "concurrently -n api,worker,web -c blue,magenta,green \"npm run dev -w @shipments/api\" \"npm run dev -w @shipments/worker\" \"npm run dev -w @shipments/web\"",
+    "build": "npm run build -w @shipments/shared",
+    "build:shared": "npm run build -w @shipments/shared",
+    "seed": "npm run seed -w @shipments/api",
+    "docker:up": "\"C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe\" compose up -d",
+    "docker:down": "\"C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe\" compose down",
+    "docker:logs": "\"C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe\" compose logs -f redis"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.8.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

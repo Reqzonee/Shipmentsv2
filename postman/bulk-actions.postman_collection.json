@@ -1,0 +1,138 @@
+{
+  "info": {
+    "name": "Shipmnts Bulk Action Platform",
+    "description": "API collection for the Bulk Action Platform assignment",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/api/v1" },
+    { "key": "actionId", "value": "" },
+    { "key": "accountId", "value": "acc_demo" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/health"
+      }
+    },
+    {
+      "name": "Contacts",
+      "item": [
+        {
+          "name": "List Contacts",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/contacts?accountId={{accountId}}&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["contacts"],
+              "query": [
+                { "key": "accountId", "value": "{{accountId}}" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Seed Contacts",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{accountId}}\",\n  \"count\": 2000\n}"
+            },
+            "url": "{{baseUrl}}/contacts/seed"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bulk Actions",
+      "item": [
+        {
+          "name": "List Bulk Actions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/bulk-actions?accountId={{accountId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["bulk-actions"],
+              "query": [{ "key": "accountId", "value": "{{accountId}}" }]
+            }
+          }
+        },
+        {
+          "name": "Create Bulk Update",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.id) {",
+                  "  pm.collectionVariables.set('actionId', json.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{accountId}}\",\n  \"entityType\": \"contact\",\n  \"actionType\": \"bulk_update\",\n  \"filters\": { \"status\": \"inactive\" },\n  \"updates\": { \"status\": \"active\" }\n}"
+            },
+            "url": "{{baseUrl}}/bulk-actions"
+          }
+        },
+        {
+          "name": "Create Scheduled Bulk Update",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{accountId}}\",\n  \"entityType\": \"contact\",\n  \"actionType\": \"bulk_update\",\n  \"filters\": { \"status\": \"lead\" },\n  \"updates\": { \"status\": \"active\" },\n  \"scheduledAt\": \"2026-11-22T17:45:00.000Z\"\n}"
+            },
+            "url": "{{baseUrl}}/bulk-actions"
+          }
+        },
+        {
+          "name": "Get Bulk Action Status",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/bulk-actions/{{actionId}}"
+          }
+        },
+        {
+          "name": "Get Bulk Action Stats",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/bulk-actions/{{actionId}}/stats"
+          }
+        },
+        {
+          "name": "Get Bulk Action Logs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/bulk-actions/{{actionId}}/logs?limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["bulk-actions", "{{actionId}}", "logs"],
+              "query": [
+                { "key": "status", "value": "failed", "disabled": true },
+                { "key": "limit", "value": "50" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
