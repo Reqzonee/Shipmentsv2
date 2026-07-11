@@ -1,13 +1,25 @@
-import { BulkUpdateHandler } from './BulkUpdateHandler.js';
+import type { Model } from 'mongoose';
+import { listEntityDefs } from '@shipments/shared';
+import { GenericBulkUpdateHandler } from './GenericBulkUpdateHandler.js';
 import type { BulkActionHandler } from './types.js';
 
 const registry = new Map<string, BulkActionHandler>();
 
+for (const def of listEntityDefs()) {
+  const updatable = new Set(def.fields.filter((f) => f.updatable).map((f) => f.key));
+  register(
+    new GenericBulkUpdateHandler(
+      def.type,
+      def.model as Model<any>,
+      def.dedupeField,
+      updatable
+    )
+  );
+}
+
 function register(handler: BulkActionHandler) {
   registry.set(handler.key, handler);
 }
-
-register(new BulkUpdateHandler());
 
 export function getHandler(
   entityType: string,

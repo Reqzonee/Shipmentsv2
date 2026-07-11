@@ -2,8 +2,8 @@ import type { Request, Response } from 'express';
 import {
   BulkAction,
   BulkActionLog,
-  Contact,
   createBulkActionSchema,
+  getEntityDef,
 } from '@shipments/shared';
 import { sendOk, sendFail } from '../middleware/errorHandler.js';
 import {
@@ -122,7 +122,18 @@ export async function createBulkAction(req: Request, res: Response) {
     const input = parsed.data;
     const accountId = input.accountId;
 
-    // Resolve target contacts count
+    let entityDef;
+    try {
+      entityDef = getEntityDef(input.entityType);
+    } catch (err) {
+      return sendFail(
+        res,
+        err instanceof Error ? err.message : 'Unknown entity type',
+        400
+      );
+    }
+
+    const Model = entityDef.model;
     const query: Record<string, unknown> = { accountId };
     if (input.entityIds?.length) {
       query._id = { $in: input.entityIds };
@@ -130,9 +141,13 @@ export async function createBulkAction(req: Request, res: Response) {
       Object.assign(query, input.filters);
     }
 
-    const totalCount = await Contact.countDocuments(query);
+    const totalCount = await Model.countDocuments(query);
     if (totalCount === 0) {
-      return sendFail(res, 'No contacts matched the given filters/entityIds', 400);
+      return sendFail(
+        res,
+        `No ${entityDef.collectionLabel.toLowerCase()} matched the given filters/entityIds for account "${accountId}"`,
+        400
+      );
     }
 
     await adjustRateLimit(
@@ -144,9 +159,9 @@ export async function createBulkAction(req: Request, res: Response) {
     if (totalCount > env.rateLimitPerMinute) {
       return sendFail(
         res,
-        `This action targets ${totalCount} entities which exceeds the per-minute rate limit of ${env.rateLimitPerMinute}`,
+        `This action targets ${totalCount} entities which exceeds the per-minute rate limit of ${env.rateLimitPerMinute} for account ${accountId}`,
         429,
-        { limit: env.rateLimitPerMinute, totalCount }
+        { limit: env.rateLimitPerMinute, totalCount, accountId }
       );
     }
 

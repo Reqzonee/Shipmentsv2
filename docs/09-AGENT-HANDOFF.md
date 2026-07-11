@@ -1,9 +1,6 @@
 # AGENT HANDOFF — Read This First
 
-> **Purpose:** Any AI agent picking up this project after a context reset should read this file first.  
-> **Update this file** at the end of every significant work session.
-
-**Last updated:** 2026-07-11  
+**Last updated:** 2026-07-11 (gap closure + multi-entity)  
 **Project path:** `d:\SMVS\shipments`
 
 ---
@@ -12,87 +9,50 @@
 
 | Item | Status |
 |------|--------|
-| Planning docs | ✅ Done |
-| Elevate study | ✅ Done |
-| Monorepo scaffold | ✅ Done |
-| Redis (Docker) | ✅ Running (`shipments-redis`) |
-| Mongo local (Docker) | ✅ Running (`shipments-mongo`) — Atlas blocked by IP whitelist |
-| Shared models | ✅ Contact, BulkAction, BulkActionLog |
-| API + Swagger | ✅ Express on `:3000`, docs at `/docs` |
-| Worker + bulk update | ✅ BullMQ + handler registry + dedup skip |
-| Rate limiting | ✅ Redis per-account / minute |
-| Scheduling | ✅ via BullMQ `delay` + `scheduledAt` |
-| E2E verified | ✅ Seeded 500, updated 167 inactive→active |
-| Postman collection | ✅ `postman/bulk-actions.postman_collection.json` |
-| React UI | ✅ Dashboard / Create / Detail+charts / Contacts |
-| Loom | ❌ Not started |
+| Multi-entity CRM | ✅ contact, company, lead, opportunity, task |
+| Multi-field bulk update | ✅ name, email, status, and entity-specific fields |
+| Handler registry | ✅ `entityType:bulk_update` × 5 |
+| Cursor batching (no skip bug) | ✅ |
+| Dashboard filters + Future badge | ✅ |
+| Entities UI + seed-all | ✅ |
+| Rate limit per accountId | ✅ 10k/min |
+| Email dedup → skipped | ✅ |
+| Atlas | ⚠️ DNS OK; **IP whitelist required** — current public IP `223.228.4.122` |
+| Active DB right now | Local Docker Mongo (so app works) |
+| Loom | ❌ |
 
-**Next action:** Load test 2k–5k → Loom → submit.
-
-**UI updates (latest):** Contacts pagination + filters (status/search/age); queue progress animation on create + action detail.
+**Next:** Whitelist Atlas IP → flip `.env` to Atlas → deploy API+worker+Redis on server → Loom.
 
 ---
 
-## How to Run (right now)
+## Atlas for server hosting
 
-```powershell
-# Docker (Redis + Mongo) — docker may need full path on this machine
-$env:Path = "C:\Program Files\Docker\Docker\resources\bin;" + $env:Path
-docker compose up -d
+1. Atlas → **Network Access** → Add IP `223.228.4.122` (this machine) **and** your **server IP** (or `0.0.0.0/0` for demo)
+2. In `.env` uncomment Atlas URI, comment local
+3. Redis still required on server (Docker or managed)
+4. Run: `npm run build -w @shipments/shared && npm run dev` (or process manager for api + worker)
 
-npm install
-npm run dev          # API + worker
-npm run dev:web      # React UI on :5173
-```
-
-- API: http://localhost:3000  
-- Swagger: http://localhost:3000/docs  
-- UI: http://localhost:5173  
-- Health: http://localhost:3000/api/v1/health  
-
-### Atlas note
-Atlas URI is in `.env` (commented). Active DB is **local Docker Mongo** because Atlas returned IP whitelist error. To use Atlas:
-1. Atlas → Network Access → Add IP `0.0.0.0/0` (or current IP)
-2. Uncomment Atlas `MONGODB_URI` in `.env`, comment local one
-3. Restart API/worker
-
-**Never commit `.env`** (password lives there).
+Node already forces DNS `8.8.8.8` / `1.1.1.1` for `mongodb+srv` ([docs](https://www.mongodb.com/docs/drivers/node/current/connect/connection-troubleshooting/)).
 
 ---
 
-## Locked Decisions
+## Multi-account rate limit
 
-| Decision | Choice |
-|----------|--------|
-| Backend | Express + TypeScript (Elevate.Server style) |
-| Queue | Redis + BullMQ |
-| DB | Local Mongo for now; Atlas when whitelisted |
-| Response shape | `{ isOk, message, status, data }` |
-| UI | Vite + React + Tailwind + Recharts |
-| Dedup | Skip duplicate emails within a job |
-| Rate limit | 10k events/min per accountId |
+Yes — many users/accounts. Each job has `accountId`. Limit is **per accountId**, not global. Account A and Account B each get 10k events/min.
 
 ---
 
-## Repo Layout
+## How to add a new bulk action later
 
-```
-shipments/
-├── apps/web/                 ← React UI
-├── packages/api/             ← Express + Swagger
-├── packages/worker/          ← BullMQ worker
-├── packages/shared/          ← Models, Zod, constants
-├── postman/
-├── docs/                     ← Obsidian vault
-├── docker-compose.yml        ← redis + mongo
-└── .env                      ← secrets (gitignored)
-```
+1. Add handler class implementing `BulkActionHandler`
+2. `registry.set('contact:bulk_delete', handler)`
+3. Extend Zod `ACTION_TYPES` + API validation  
+Worker orchestrator stays unchanged.
 
 ---
 
-## Related Notes
+## Related
 
-- [[10-Elevate-References]]
+- [[12-Gap-Closure-Research]]
+- [[11-Architecture-Layman]]
 - [[05-Implementation-Phases]]
-- [[08-UI-Swagger-Visualization]]
-- [[03-API-Specification]]

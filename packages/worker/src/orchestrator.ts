@@ -1,7 +1,7 @@
 import {
   BulkAction,
   BulkActionLog,
-  Contact,
+  getEntityDef,
   type BulkActionDocument,
 } from '@shipments/shared';
 import { Types } from 'mongoose';
@@ -22,10 +22,21 @@ export async function processBulkAction(actionId: string): Promise<void> {
   const handler = getHandler(action.entityType, action.actionType);
   if (!handler) {
     action.status = 'failed';
-    action.error = `No handler for ${action.entityType}:${action.actionType}`;
+    action.error = `No handler for ${action.entityType}:${action.actionType}. Register a new handler to extend.`;
     action.completedAt = new Date();
     await action.save();
     throw new Error(action.error);
+  }
+
+  let entityDef;
+  try {
+    entityDef = getEntityDef(action.entityType);
+  } catch (err) {
+    action.status = 'failed';
+    action.error = err instanceof Error ? err.message : 'Unknown entity';
+    action.completedAt = new Date();
+    await action.save();
+    throw err;
   }
 
   action.status = 'running';
@@ -33,16 +44,15 @@ export async function processBulkAction(actionId: string): Promise<void> {
   action.error = null;
   await action.save();
 
+  const Model = entityDef.model;
   const seenEmails = new Set<string>();
-  // Cursor by _id — NEVER use skip while updating filter fields (e.g. status),
-  // or rows "fall out" of the query and get skipped forever.
   let lastId: Types.ObjectId | null = null;
 
   try {
     // eslint-disable-next-line no-constant-condition
     while (true) {
       const query = buildQuery(action, lastId);
-      const batch = await Contact.find(query)
+      const batch = await Model.find(query)
         .sort({ _id: 1 })
         .limit(env.batchSize)
         .lean();
@@ -84,11 +94,10 @@ export async function processBulkAction(actionId: string): Promise<void> {
 
       lastId = batch[batch.length - 1]._id as Types.ObjectId;
       console.log(
-        `Action ${actionId}: processed ${action.processedCount}/${action.totalCount}`
+        `Action ${actionId} [${action.entityType}]: ${action.processedCount}/${action.totalCount}`
       );
     }
 
-    // Align total with what we actually walked (in case count drifted)
     if (action.processedCount > 0 && action.processedCount !== action.totalCount) {
       action.totalCount = action.processedCount;
     }

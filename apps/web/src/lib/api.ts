@@ -64,25 +64,49 @@ export type BulkActionLog = {
   processedAt: string;
 };
 
-export type Contact = {
+export type EntityField = {
+  key: string;
+  label: string;
+  type: string;
+  enumValues?: string[];
+  updatable: boolean;
+  filterable: boolean;
+};
+
+export type EntityMeta = {
+  type: string;
+  label: string;
+  collectionLabel: string;
+  dedupeField: string;
+  defaultStatus: string;
+  fields: EntityField[];
+};
+
+export type EntityRecord = {
   _id: string;
-  name: string;
-  email: string;
-  age: number;
-  status: string;
+  name?: string;
+  email?: string;
+  status?: string;
+  [key: string]: unknown;
 };
 
 export const api = {
-  listActions: (accountId = 'acc_demo') =>
-    request<{ data: BulkAction[]; pagination: { total: number } }>(
-      `/bulk-actions?accountId=${encodeURIComponent(accountId)}&limit=50`
-    ),
+  listActions: (params: { accountId?: string; status?: string } = {}) => {
+    const sp = new URLSearchParams();
+    if (params.accountId) sp.set('accountId', params.accountId);
+    if (params.status) sp.set('status', params.status);
+    sp.set('limit', '50');
+    return request<{ data: BulkAction[]; pagination: { total: number } }>(
+      `/bulk-actions?${sp.toString()}`
+    );
+  },
   getAction: (id: string) => request<BulkAction>(`/bulk-actions/${id}`),
   getStats: (id: string) => request<BulkActionStats>(`/bulk-actions/${id}/stats`),
-  getLogs: (id: string, status?: string) => {
-    const q = status ? `?status=${status}&limit=100` : '?limit=100';
+  getLogs: (id: string, status?: string, page = 1) => {
+    const sp = new URLSearchParams({ limit: '100', page: String(page) });
+    if (status) sp.set('status', status);
     return request<{ data: BulkActionLog[]; pagination: { total: number } }>(
-      `/bulk-actions/${id}/logs${q}`
+      `/bulk-actions/${id}/logs?${sp.toString()}`
     );
   },
   createAction: (body: Record<string, unknown>) =>
@@ -90,40 +114,38 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-  listContacts: (params: {
-    accountId?: string;
-    page?: number;
-    limit?: number;
-    status?: string;
-    q?: string;
-    minAge?: string;
-    maxAge?: string;
-  } = {}) => {
+  listEntities: () => request<EntityMeta[]>('/entities'),
+  listEntityRecords: (entityType: string, params: Record<string, string | number> = {}) => {
     const sp = new URLSearchParams();
-    sp.set('accountId', params.accountId ?? 'acc_demo');
-    sp.set('page', String(params.page ?? 1));
-    sp.set('limit', String(params.limit ?? 20));
-    if (params.status) sp.set('status', params.status);
-    if (params.q) sp.set('q', params.q);
-    if (params.minAge) sp.set('minAge', params.minAge);
-    if (params.maxAge) sp.set('maxAge', params.maxAge);
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== '' && v !== undefined) sp.set(k, String(v));
+    });
     return request<{
-      data: Contact[];
+      entityType: string;
+      data: EntityRecord[];
       pagination: {
         page: number;
         limit: number;
         total: number;
         totalPages: number;
-        hasNext: boolean;
-        hasPrev: boolean;
       };
-    }>(`/contacts?${sp.toString()}`);
+    }>(`/entities/${entityType}?${sp.toString()}`);
   },
-  seedContacts: (count = 2000, accountId = 'acc_demo') =>
-    request<{ inserted: number }>('/contacts/seed', {
+  seedEntity: (entityType: string, count = 2000, accountId = 'acc_demo') =>
+    request<{ inserted: number }>(`/entities/${entityType}/seed`, {
       method: 'POST',
       body: JSON.stringify({ accountId, count }),
     }),
+  seedAll: (count = 2000, accountId = 'acc_demo') =>
+    request<{ results: Record<string, number> }>('/entities/seed-all', {
+      method: 'POST',
+      body: JSON.stringify({ accountId, count }),
+    }),
+  // legacy contact helpers
+  listContacts: (params: Record<string, string | number> = {}) =>
+    api.listEntityRecords('contact', { accountId: 'acc_demo', page: 1, limit: 20, ...params }),
+  seedContacts: (count = 2000, accountId = 'acc_demo') =>
+    api.seedEntity('contact', count, accountId),
 };
 
 export { API_BASE };

@@ -1,4 +1,4 @@
-import type { ContactDocument, LogStatus } from '@shipments/shared';
+import type { LogStatus } from '@shipments/shared';
 
 export type EntityOutcome = {
   entityId: string;
@@ -19,7 +19,7 @@ export type BatchResult = {
 export interface BulkActionHandler {
   readonly key: string;
   processBatch(
-    entities: ContactDocument[],
+    entities: Array<{ _id: unknown } & Record<string, unknown>>,
     updates: Record<string, unknown>,
     seenEmails: Set<string>
   ): Promise<BatchResult>;

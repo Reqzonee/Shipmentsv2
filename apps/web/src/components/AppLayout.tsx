@@ -3,7 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 const links = [
   { to: '/', label: 'Dashboard', end: true },
   { to: '/create', label: 'Create Action' },
-  { to: '/contacts', label: 'Contacts' },
+  { to: '/entities', label: 'CRM Entities' },
 ];
 
 export function AppLayout() {

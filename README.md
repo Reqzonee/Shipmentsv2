@@ -41,7 +41,13 @@ Open `docs/` as a vault. Start with `09-AGENT-HANDOFF.md`.
 
 ## Status
 
-✅ Backend core + worker + rate limit + schedule + dedup  
-✅ Swagger + Postman  
-✅ React UI with live progress + charts  
-🚧 Loom video / final submission polish
+✅ Multi-entity CRM (Contacts, Companies, Leads, Opportunities, Tasks)  
+✅ Multi-field bulk update + modular handler registry  
+✅ Rate limit per accountId · email dedup · scheduling · cursor batching  
+✅ Dashboard tabs (queued / ongoing / future / completed) · Entities UI · seed-all  
+⚠️ Atlas: whitelist your IP then switch `.env` (see `docs/12-Gap-Closure-Research.md`)  
+🚧 Loom video
+
+## Horizontal scale (assignment)
+
+Run more **API** instances + more **worker** processes against the same Redis queue and MongoDB. That is scale-out.

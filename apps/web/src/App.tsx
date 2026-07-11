@@ -3,7 +3,7 @@ import { AppLayout } from './components/AppLayout';
 import { DashboardPage } from './pages/DashboardPage';
 import { CreateActionPage } from './pages/CreateActionPage';
 import { ActionDetailPage } from './pages/ActionDetailPage';
-import { ContactsPage } from './pages/ContactsPage';
+import { EntitiesPage } from './pages/EntitiesPage';
 
 export default function App() {
   return (
@@ -13,7 +13,8 @@ export default function App() {
           <Route index element={<DashboardPage />} />
           <Route path="create" element={<CreateActionPage />} />
           <Route path="actions/:actionId" element={<ActionDetailPage />} />
-          <Route path="contacts" element={<ContactsPage />} />
+          <Route path="entities" element={<EntitiesPage />} />
+          <Route path="contacts" element={<Navigate to="/entities" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

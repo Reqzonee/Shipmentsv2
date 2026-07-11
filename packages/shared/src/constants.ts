@@ -15,7 +15,26 @@ export type LogStatus = (typeof LOG_STATUSES)[number];
 export const CONTACT_STATUSES = ['active', 'inactive', 'lead'] as const;
 export type ContactStatus = (typeof CONTACT_STATUSES)[number];
 
-export const ENTITY_TYPES = ['contact'] as const;
+export const COMPANY_STATUSES = ['active', 'inactive', 'prospect'] as const;
+export const LEAD_STATUSES = ['new', 'contacted', 'qualified', 'lost'] as const;
+export const OPPORTUNITY_STAGES = [
+  'prospecting',
+  'qualification',
+  'proposal',
+  'negotiation',
+  'closed_won',
+  'closed_lost',
+] as const;
+export const TASK_STATUSES = ['todo', 'in_progress', 'done', 'cancelled'] as const;
+
+/** Assignment entities — architecture stays pluggable via registry */
+export const ENTITY_TYPES = [
+  'contact',
+  'company',
+  'lead',
+  'opportunity',
+  'task',
+] as const;
 export type EntityType = (typeof ENTITY_TYPES)[number];
 
 export const ACTION_TYPES = ['bulk_update'] as const;
