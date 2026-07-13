@@ -137,6 +137,7 @@ packages/api      Express API (also serves UI in production)
 packages/worker   BullMQ consumers
 packages/shared   Models, Zod, entity registry
 postman/          Importable Postman collection
+shipments-vault/  Architecture notes & assignment docs (Obsidian vault)
 ```
 
 ---
