@@ -1,44 +1,39 @@
 {
   "info": {
+    "_postman_id": "shipmnts-bulk-actions-2026",
     "name": "Shipmnts Bulk Action Platform",
-    "description": "API collection for the Bulk Action Platform assignment",
+    "description": "Shipmnts assignment APIs.\n\nBase path: {{baseUrl}} = http://localhost:3000/api/v1\n\nSuggested order:\n1) Health\n2) Entities → Seed ALL\n3) Bulk Actions → Create status update\n4) Get Status / Stats / Logs\n5) Try multi-field, scheduled, lead/company updates\n\nBulk update meaning: values in `updates` are applied to EVERY matching row. Omit a field to leave it unchanged.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:3000/api/v1" },
     { "key": "actionId", "value": "" },
-    { "key": "accountId", "value": "acc_demo" }
+    { "key": "accountId", "value": "acc_demo" },
+    { "key": "entityType", "value": "contact" }
   ],
   "item": [
     {
-      "name": "Health",
+      "name": "01 Health",
       "request": {
         "method": "GET",
         "header": [],
-        "url": "{{baseUrl}}/health"
+        "url": "{{baseUrl}}/health",
+        "description": "Checks API + MongoDB + Redis"
       }
     },
     {
-      "name": "Contacts",
+      "name": "02 Entities",
       "item": [
         {
-          "name": "List Contacts",
+          "name": "List entity types",
           "request": {
             "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/contacts?accountId={{accountId}}&page=1&limit=20",
-              "host": ["{{baseUrl}}"],
-              "path": ["contacts"],
-              "query": [
-                { "key": "accountId", "value": "{{accountId}}" },
-                { "key": "page", "value": "1" },
-                { "key": "limit", "value": "20" }
-              ]
-            }
+            "url": "{{baseUrl}}/entities",
+            "description": "Contacts, Companies, Leads, Opportunities, Tasks + updatable fields"
           }
         },
         {
-          "name": "Seed Contacts",
+          "name": "Seed ALL entities (load test)",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
@@ -46,36 +41,72 @@
               "mode": "raw",
               "raw": "{\n  \"accountId\": \"{{accountId}}\",\n  \"count\": 2000\n}"
             },
-            "url": "{{baseUrl}}/contacts/seed"
+            "url": "{{baseUrl}}/entities/seed-all"
+          }
+        },
+        {
+          "name": "Seed one entity",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{accountId}}\",\n  \"count\": 2000\n}"
+            },
+            "url": "{{baseUrl}}/entities/{{entityType}}/seed"
+          }
+        },
+        {
+          "name": "List entity records",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/entities/{{entityType}}?accountId={{accountId}}&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["entities", "{{entityType}}"],
+              "query": [
+                { "key": "accountId", "value": "{{accountId}}" },
+                { "key": "status", "value": "inactive", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
           }
         }
       ]
     },
     {
-      "name": "Bulk Actions",
+      "name": "03 Bulk Actions (REQUIRED)",
       "item": [
         {
-          "name": "List Bulk Actions",
+          "name": "GET /bulk-actions — List",
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/bulk-actions?accountId={{accountId}}",
+              "raw": "{{baseUrl}}/bulk-actions?accountId={{accountId}}&limit=20",
               "host": ["{{baseUrl}}"],
               "path": ["bulk-actions"],
-              "query": [{ "key": "accountId", "value": "{{accountId}}" }]
-            }
+              "query": [
+                { "key": "accountId", "value": "{{accountId}}" },
+                { "key": "status", "value": "queued", "disabled": true },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "description": "Assignment: Bulk Action List Endpoint"
           }
         },
         {
-          "name": "Create Bulk Update",
+          "name": "POST /bulk-actions — Create (status update)",
           "event": [
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "const json = pm.response.json();",
                   "if (json.data && json.data.id) {",
                   "  pm.collectionVariables.set('actionId', json.data.id);",
+                  "  console.log('Saved actionId', json.data.id);",
                   "}"
                 ]
               }
@@ -88,11 +119,61 @@
               "mode": "raw",
               "raw": "{\n  \"accountId\": \"{{accountId}}\",\n  \"entityType\": \"contact\",\n  \"actionType\": \"bulk_update\",\n  \"filters\": { \"status\": \"inactive\" },\n  \"updates\": { \"status\": \"active\" }\n}"
             },
+            "url": "{{baseUrl}}/bulk-actions",
+            "description": "Assignment: Bulk Action Creation. Saves actionId automatically."
+          }
+        },
+        {
+          "name": "POST /bulk-actions — Multi-field update",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.id) pm.collectionVariables.set('actionId', json.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{accountId}}\",\n  \"entityType\": \"contact\",\n  \"actionType\": \"bulk_update\",\n  \"filters\": { \"status\": \"active\" },\n  \"updates\": {\n    \"name\": \"Bulk Renamed Contact\",\n    \"status\": \"inactive\"\n  }\n}"
+            },
+            "url": "{{baseUrl}}/bulk-actions",
+            "description": "Same name+status applied to EVERY matching contact. Email omitted = unchanged."
+          }
+        },
+        {
+          "name": "POST /bulk-actions — Lead update",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.id) pm.collectionVariables.set('actionId', json.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{accountId}}\",\n  \"entityType\": \"lead\",\n  \"actionType\": \"bulk_update\",\n  \"filters\": { \"status\": \"new\" },\n  \"updates\": {\n    \"status\": \"contacted\",\n    \"source\": \"bulk_campaign\"\n  }\n}"
+            },
             "url": "{{baseUrl}}/bulk-actions"
           }
         },
         {
-          "name": "Create Scheduled Bulk Update",
+          "name": "POST /bulk-actions — Scheduled (future)",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
@@ -100,36 +181,54 @@
               "mode": "raw",
               "raw": "{\n  \"accountId\": \"{{accountId}}\",\n  \"entityType\": \"contact\",\n  \"actionType\": \"bulk_update\",\n  \"filters\": { \"status\": \"lead\" },\n  \"updates\": { \"status\": \"active\" },\n  \"scheduledAt\": \"2026-11-22T17:45:00.000Z\"\n}"
             },
-            "url": "{{baseUrl}}/bulk-actions"
+            "url": "{{baseUrl}}/bulk-actions",
+            "description": "Bonus: scheduling. Status becomes scheduled until time fires."
           }
         },
         {
-          "name": "Get Bulk Action Status",
+          "name": "GET /bulk-actions/:actionId — Status",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/bulk-actions/{{actionId}}"
+            "url": "{{baseUrl}}/bulk-actions/{{actionId}}",
+            "description": "Assignment: Bulk Action Status Endpoint"
           }
         },
         {
-          "name": "Get Bulk Action Stats",
+          "name": "GET /bulk-actions/:actionId/stats — Stats",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/bulk-actions/{{actionId}}/stats"
+            "url": "{{baseUrl}}/bulk-actions/{{actionId}}/stats",
+            "description": "Assignment: success, failure, skipped + throughput"
           }
         },
         {
-          "name": "Get Bulk Action Logs",
+          "name": "GET /bulk-actions/:actionId/logs — All logs",
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/bulk-actions/{{actionId}}/logs?limit=50",
+              "raw": "{{baseUrl}}/bulk-actions/{{actionId}}/logs?limit=50&page=1",
               "host": ["{{baseUrl}}"],
               "path": ["bulk-actions", "{{actionId}}", "logs"],
               "query": [
-                { "key": "status", "value": "failed", "disabled": true },
-                { "key": "limit", "value": "50" }
+                { "key": "limit", "value": "50" },
+                { "key": "page", "value": "1" }
               ]
-            }
+            },
+            "description": "Per-entity success/error/skipped details"
+          }
+        },
+        {
+          "name": "GET logs — filter failed",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/bulk-actions/{{actionId}}/logs?status=failed&limit=50"
+          }
+        },
+        {
+          "name": "GET logs — filter skipped (dedup)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/bulk-actions/{{actionId}}/logs?status=skipped&limit=50"
           }
         }
       ]

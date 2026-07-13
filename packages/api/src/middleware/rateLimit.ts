@@ -75,3 +75,13 @@ export async function adjustRateLimit(
     await redis.incrby(rateKey, delta);
   }
 }
+
+/** Refund usage when a create is rejected after the counter was charged */
+export async function refundRateLimit(
+  rateKey: string | undefined,
+  amount: number
+) {
+  if (!rateKey || amount <= 0) return;
+  const redis = getRedisConnection();
+  await redis.decrby(rateKey, amount);
+}

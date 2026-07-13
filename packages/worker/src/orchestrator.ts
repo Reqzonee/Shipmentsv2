@@ -48,13 +48,23 @@ export async function processBulkAction(actionId: string): Promise<void> {
   const seenEmails = new Set<string>();
   let lastId: Types.ObjectId | null = null;
 
+  // Cascade / Loom demos: smaller batches + pause so the UI can show live progress
+  const payloadMeta = (action.payload ?? {}) as Record<string, unknown>;
+  const isCascadeDemo = payloadMeta.cascadeDemo === true;
+  const batchSize = isCascadeDemo
+    ? Math.max(10, Number(payloadMeta.demoBatchSize ?? 25))
+    : env.batchSize;
+  const paceMs = isCascadeDemo
+    ? Math.max(0, Number(payloadMeta.demoPaceMs ?? 450))
+    : 0;
+
   try {
     // eslint-disable-next-line no-constant-condition
     while (true) {
       const query = buildQuery(action, lastId);
       const batch = await Model.find(query)
         .sort({ _id: 1 })
-        .limit(env.batchSize)
+        .limit(batchSize)
         .lean();
 
       if (batch.length === 0) break;
@@ -96,6 +106,10 @@ export async function processBulkAction(actionId: string): Promise<void> {
       console.log(
         `Action ${actionId} [${action.entityType}]: ${action.processedCount}/${action.totalCount}`
       );
+
+      if (paceMs > 0) {
+        await new Promise((r) => setTimeout(r, paceMs));
+      }
     }
 
     if (action.processedCount > 0 && action.processedCount !== action.totalCount) {

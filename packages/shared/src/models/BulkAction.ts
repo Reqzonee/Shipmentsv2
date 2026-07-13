@@ -31,6 +31,11 @@ const bulkActionSchema = new Schema(
       filters: { type: Schema.Types.Mixed },
       entityIds: [{ type: String }],
       updates: { type: Schema.Types.Mixed },
+      /** Live queue demo flags (optional) */
+      cascadeDemo: { type: Boolean, default: false },
+      demoBatchSize: { type: Number, default: null },
+      demoPaceMs: { type: Number, default: null },
+      demoSeed: { type: Boolean, default: false },
     },
     totalCount: { type: Number, default: 0 },
     processedCount: { type: Number, default: 0 },

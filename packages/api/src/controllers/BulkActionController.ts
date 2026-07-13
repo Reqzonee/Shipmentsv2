@@ -10,7 +10,7 @@ import {
   getBulkActionQueue,
   type BulkActionJobData,
 } from '../queue/bulkActionQueue.js';
-import { adjustRateLimit } from '../middleware/rateLimit.js';
+import { adjustRateLimit, refundRateLimit } from '../middleware/rateLimit.js';
 import { env } from '../config/env.js';
 
 function progressPercent(doc: {
@@ -150,13 +150,13 @@ export async function createBulkAction(req: Request, res: Response) {
       );
     }
 
-    await adjustRateLimit(
-      res.locals.rateKey as string | undefined,
-      Number(res.locals.rateEstimated ?? 1),
-      totalCount
-    );
+    const rateKey = res.locals.rateKey as string | undefined;
+    const rateEstimated = Number(res.locals.rateEstimated ?? 1);
+
+    await adjustRateLimit(rateKey, rateEstimated, totalCount);
 
     if (totalCount > env.rateLimitPerMinute) {
+      await refundRateLimit(rateKey, totalCount);
       return sendFail(
         res,
         `This action targets ${totalCount} entities which exceeds the per-minute rate limit of ${env.rateLimitPerMinute} for account ${accountId}`,
@@ -165,46 +165,51 @@ export async function createBulkAction(req: Request, res: Response) {
       );
     }
 
-    const scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : null;
-    const isScheduled = scheduledAt !== null && scheduledAt.getTime() > Date.now();
+    try {
+      const scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : null;
+      const isScheduled = scheduledAt !== null && scheduledAt.getTime() > Date.now();
 
-    const action = await BulkAction.create({
-      accountId,
-      entityType: input.entityType,
-      actionType: input.actionType,
-      status: isScheduled ? 'scheduled' : 'queued',
-      payload: {
-        filters: input.filters,
-        entityIds: input.entityIds,
-        updates: input.updates,
-      },
-      totalCount,
-      scheduledAt,
-    });
-
-    const delay = isScheduled ? scheduledAt!.getTime() - Date.now() : 0;
-    const queue = getBulkActionQueue();
-    const job = await queue.add(
-      'process-bulk-action',
-      { actionId: String(action._id), accountId } satisfies BulkActionJobData,
-      { delay: delay > 0 ? delay : undefined }
-    );
-
-    action.jobId = job.id ?? null;
-    await action.save();
-
-    return sendOk(
-      res,
-      {
-        id: String(action._id),
-        status: action.status,
+      const action = await BulkAction.create({
+        accountId,
+        entityType: input.entityType,
+        actionType: input.actionType,
+        status: isScheduled ? 'scheduled' : 'queued',
+        payload: {
+          filters: input.filters,
+          entityIds: input.entityIds,
+          updates: input.updates,
+        },
         totalCount,
-        jobId: action.jobId,
-        scheduledAt: action.scheduledAt,
-      },
-      'Bulk action queued successfully',
-      202
-    );
+        scheduledAt,
+      });
+
+      const delay = isScheduled ? scheduledAt!.getTime() - Date.now() : 0;
+      const queue = getBulkActionQueue();
+      const job = await queue.add(
+        'process-bulk-action',
+        { actionId: String(action._id), accountId } satisfies BulkActionJobData,
+        { delay: delay > 0 ? delay : undefined }
+      );
+
+      action.jobId = job.id ?? null;
+      await action.save();
+
+      return sendOk(
+        res,
+        {
+          id: String(action._id),
+          status: action.status,
+          totalCount,
+          jobId: action.jobId,
+          scheduledAt: action.scheduledAt,
+        },
+        'Bulk action queued successfully',
+        202
+      );
+    } catch (err) {
+      await refundRateLimit(rateKey, totalCount);
+      throw err;
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to create action';
     return sendFail(res, message, 500);

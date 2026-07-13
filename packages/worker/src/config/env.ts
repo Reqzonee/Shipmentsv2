@@ -16,4 +16,6 @@ export const env = {
   redisHost: process.env.REDIS_HOST ?? '127.0.0.1',
   redisPort: Number(process.env.REDIS_PORT ?? 6379),
   batchSize: Number(process.env.BATCH_SIZE ?? 500),
+  /** 1 = process jobs one-by-one (best for Loom queue demo) */
+  workerConcurrency: Number(process.env.WORKER_CONCURRENCY ?? 1),
 };

@@ -31,14 +31,6 @@ export function AppLayout() {
               {link.label}
             </NavLink>
           ))}
-          <a
-            href="http://localhost:3000/docs"
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white"
-          >
-            Swagger Docs ↗
-          </a>
         </nav>
       </aside>
 

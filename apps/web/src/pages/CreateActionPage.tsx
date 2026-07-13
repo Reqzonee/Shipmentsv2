@@ -97,6 +97,8 @@ export function CreateActionPage() {
         actionType: 'bulk_update',
         filters: filterStatus ? { status: filterStatus } : {},
         updates: parsedUpdates,
+        // Helps rate limiter charge the real match count (not 1 then adjust later)
+        estimatedCount: matchCount ?? 1,
       };
       if (scheduledAt) body.scheduledAt = new Date(scheduledAt).toISOString();
 
@@ -118,7 +120,12 @@ export function CreateActionPage() {
         <h1 className="font-display text-3xl text-ink-950">Create bulk update</h1>
         <p className="mt-1 text-slate-600">
           Works across Contacts, Companies, Leads, Opportunities, and Tasks. Update
-          multiple fields (name, email, status, …) in one queued job.
+          multiple fields in one queued job.
+        </p>
+        <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+          <strong>How updates work:</strong> any value you type is written to{' '}
+          <em>every</em> matching row (same name/email/age/status for all). Leave a field
+          blank to keep each row’s existing value.
         </p>
       </header>
 

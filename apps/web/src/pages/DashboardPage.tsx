@@ -21,6 +21,10 @@ export function DashboardPage() {
   const [accountId, setAccountId] = useState('acc_demo');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [cascadeRunning, setCascadeRunning] = useState(false);
+  const [cascadeMsg, setCascadeMsg] = useState<string | null>(null);
+  /** Fast-poll window so progress bars update live during cascade / CLI demo */
+  const [liveUntil, setLiveUntil] = useState(0);
 
   async function load() {
     try {
@@ -38,17 +42,61 @@ export function DashboardPage() {
     }
   }
 
+  async function startCascade() {
+    setCascadeRunning(true);
+    setCascadeMsg(null);
+    setError(null);
+    setStatus('');
+    // Poll fast for ~2 minutes while jobs drain
+    setLiveUntil(Date.now() + 120_000);
+    try {
+      const res = await api.runQueueCascade({
+        accountId: accountId.trim() || 'acc_demo',
+        jobs: 5,
+        chunkSize: 200,
+        staggerMs: 1500,
+      });
+      const secs = res.data?.approxSecondsPerJob ?? 5;
+      setCascadeMsg(
+        `Live cascade started — ~${secs}s per job. Watch the top rows: Queued → Ongoing → Completed.`
+      );
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Cascade demo failed');
+    } finally {
+      setCascadeRunning(false);
+    }
+  }
+
   useEffect(() => {
     setLoading(true);
     load();
-    const id = setInterval(load, 3000);
-    return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, accountId]);
+
+  useEffect(() => {
+    const fast = Date.now() < liveUntil;
+    const id = setInterval(load, fast ? 500 : 2000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, accountId, liveUntil]);
+
+  // If CLI starts a cascade while UI is open, bump to fast poll when we see queued/running
+  useEffect(() => {
+    const inFlight = actions.some(
+      (a) =>
+        (a.status === 'queued' || a.status === 'running') &&
+        Boolean(a.payload && (a.payload as { cascadeDemo?: boolean }).cascadeDemo)
+    );
+    if (inFlight && Date.now() >= liveUntil) {
+      setLiveUntil(Date.now() + 120_000);
+    }
+  }, [actions, liveUntil]);
 
   const running = actions.filter((a) => a.status === 'running' || a.status === 'queued').length;
   const scheduled = actions.filter((a) => a.status === 'scheduled').length;
   const completed = actions.filter((a) => a.status === 'completed').length;
+  const isLive = Date.now() < liveUntil;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -59,13 +107,36 @@ export function DashboardPage() {
             Queued, ongoing, completed, and future (scheduled) jobs — filtered by account.
           </p>
         </div>
-        <Link
-          to="/create"
-          className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-dark"
-        >
-          New bulk update
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={startCascade}
+            disabled={cascadeRunning}
+            className="rounded-lg bg-ink-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-ink-800 disabled:opacity-60"
+            title="Creates 5 real paced jobs — progress bars move live"
+          >
+            {cascadeRunning ? 'Queuing cascade…' : '▶ Live queue demo'}
+          </button>
+          <Link
+            to="/create"
+            className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-dark"
+          >
+            New bulk update
+          </Link>
+        </div>
       </header>
+
+      {(cascadeMsg || isLive) && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          {cascadeMsg ?? 'Live updates on — watching queue…'}{' '}
+          {isLive && (
+            <span className="ml-1 inline-flex items-center gap-1 font-semibold text-emerald-700">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+              refreshing every 0.5s
+            </span>
+          )}
+        </div>
+      )}
 
       <section className="grid gap-4 sm:grid-cols-4">
         <StatCard label="Listed" value={String(total)} />
@@ -115,18 +186,37 @@ export function DashboardPage() {
             {actions.map((action) => {
               const id = action.id ?? action._id ?? '';
               const isFuture = action.status === 'scheduled';
+              const isCascade = Boolean(
+                action.payload && (action.payload as { cascadeDemo?: boolean }).cascadeDemo
+              );
+              const cascadeLabel =
+                typeof action.payload?.updates?.name === 'string'
+                  ? String(action.payload.updates.name).split(' · ')[0]
+                  : null;
               return (
-                <li key={id} className="px-5 py-4 transition hover:bg-slate-50/80">
+                <li
+                  key={id}
+                  className={`px-5 py-4 transition hover:bg-slate-50/80 ${
+                    isCascade && (action.status === 'queued' || action.status === 'running')
+                      ? 'bg-amber-50/70'
+                      : isCascade
+                        ? 'bg-emerald-50/40'
+                        : ''
+                  }`}
+                >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <Link
                         to={`/actions/${id}`}
                         className="font-semibold text-ink-900 hover:text-accent-dark"
                       >
-                        {action.actionType} · {action.entityType}
+                        {isCascade && cascadeLabel
+                          ? cascadeLabel
+                          : `${action.actionType} · ${action.entityType}`}
                       </Link>
                       <p className="mt-0.5 text-xs text-slate-500">
                         {action.accountId}
+                        {isCascade ? ' · live cascade' : ''}
                         {isFuture && action.scheduledAt
                           ? ` · future run ${new Date(action.scheduledAt).toLocaleString()}`
                           : ''}
@@ -136,6 +226,11 @@ export function DashboardPage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
+                      {isCascade && (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                          Cascade
+                        </span>
+                      )}
                       {isFuture && (
                         <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
                           Future update

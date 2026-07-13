@@ -23,7 +23,7 @@ async function main() {
     },
     {
       connection,
-      concurrency: 2,
+      concurrency: Math.max(1, env.workerConcurrency),
     }
   );
 
@@ -36,6 +36,7 @@ async function main() {
   });
 
   console.log(`Worker listening on queue "${QUEUE_NAME}"`);
+  console.log(`Concurrency: ${Math.max(1, env.workerConcurrency)}`);
   console.log(`Registered handlers: ${listHandlers().join(', ')}`);
 }
 

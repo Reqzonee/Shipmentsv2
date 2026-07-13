@@ -28,3 +28,7 @@ Thumbs.db
 .turbo/
 tmp/
 temp/
+
+# Local notes / Obsidian vault (not part of submission)
+shipments-vault/
+docs/
