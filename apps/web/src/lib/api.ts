@@ -143,6 +143,22 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ accountId, count }),
     }),
+  runQueueCascade: (body: {
+    accountId?: string;
+    jobs?: number;
+    chunkSize?: number;
+    staggerMs?: number;
+  } = {}) =>
+    request<{
+      accountId: string;
+      jobs: number;
+      created: Array<{ id: string; label: string; totalCount: number; status: string }>;
+      tip: string;
+      approxSecondsPerJob?: number;
+    }>('/bulk-actions/demo/queue-cascade', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   // legacy contact helpers
   listContacts: (params: Record<string, string | number> = {}) =>
     api.listEntityRecords('contact', { accountId: 'acc_demo', page: 1, limit: 20, ...params }),
